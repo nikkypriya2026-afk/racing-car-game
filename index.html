@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ultimate Racing</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101820;color:white;font-family:Arial,sans-serif;display:flex;justify-content:center;padding:16px}.wrap{width:min(100%,480px)}h1{text-align:center}.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}.stat{background:#253541;padding:8px 3px;border-radius:9px;text-align:center}.stat small{display:block;font-size:10px;color:#bdcbd4}.stat b{font-size:18px}canvas{width:100%;height:auto;display:block;border-radius:12px;border:2px solid #53616b}.controls{display:flex;gap:8px;margin-top:9px}.controls button,.actions button{flex:1;padding:13px 6px;border:0;border-radius:9px;background:#294354;color:white;font-weight:bold;font-size:14px;touch-action:none}.actions{display:flex;gap:8px;margin-top:8px}.actions button.primary,.panel button{background:#079bd4;color:white}.overlay{position:relative;margin-top:-100%;height:0;overflow:visible;display:flex;align-items:center;justify-content:center}.panel{background:#07121bee;padding:22px;border-radius:14px;width:85%;text-align:center;transform:translateY(155px)}.panel button{padding:12px 25px;border:0;border-radius:8px;font-weight:bold}.help{text-align:center;color:#bdc8d0;font-size:12px;line-height:1.5}
+</style></head><body><main class="wrap"><h1>🏎️ ULTIMATE RACING</h1>
+<div class="hud"><div class="stat"><small>SCORE</small><b id="score">0</b></div><div class="stat"><small>SPEED</small><b id="speed">0</b><small>km/h</small></div><div class="stat"><small>DISTANCE</small><b id="distance">0</b><small>meters</small></div><div class="stat"><small>LEVEL</small><b id="level">1</b></div></div>
+<canvas id="game" width="420" height="640"></canvas>
+<div class="overlay" id="overlay"><div class="panel"><h2 id="heading">ULTIMATE RACING</h2><p id="message">Avoid traffic, collect coins and beat your best score!</p><button id="start">START RACE</button></div></div>
+<div class="controls"><button id="left">◀ LEFT</button><button id="right">RIGHT ▶</button></div>
+<div class="controls"><button id="brake">BRAKE</button><button id="gas">ACCELERATE</button><button id="nitro">⚡ NITRO</button></div>
+<div class="actions"><button id="pause">Ⅱ PAUSE</button><button id="restart" class="primary">↻ RESTART</button></div>
+<p class="help">Keyboard: ← → / A D steer · ↑ / W accelerate · ↓ / S brake · Space nitro · P pause<br>Touch controls are available on phones and tablets.</p></main>
+<script>
+(()=>{
+const c=document.getElementById('game'),g=c.getContext('2d'),$=id=>document.getElementById(id),W=420,H=640,L=55,R=365,lanes=[110,210,310];
+let state='menu',p={x:210,y:520},traffic=[],coins=[],keys={},score=0,distance=0,speed=0,level=1,nitro=100,road=0,spawn=45,last=0,raf=0,count=180,best=0;
+try{best=+(localStorage.getItem('ultimateRacingBest')||0)}catch(e){}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function box(x,y,w,h,r,col){g.fillStyle=col;g.beginPath();g.roundRect(x,y,w,h,r);g.fill()}
+function car(x,y,col,hero=false){g.save();g.translate(x,y);box(-26,12,9,18,3,'#111');box(17,12,9,18,3,'#111');box(-26,46,9,18,3,'#111');box(17,46,9,18,3,'#111');box(-21,0,42,76,9,col);box(-16,13,32,25,5,hero?'#b9eaff':'#9fb6c8');box(-14,44,28,17,4,'#26333e');box(-17,4,10,5,2,'#fff3c0');box(7,4,10,5,2,'#fff3c0');box(-17,68,10,5,2,'#ff3737');box(7,68,10,5,2,'#ff3737');g.restore()}
+function draw(){
+ g.fillStyle='#276b39';g.fillRect(0,0,W,H);
+ for(let y=-30;y<H+40;y+=75){let yy=(y+road*.65)%75;for(let x of [18,395]){g.fillStyle='#174d2b';g.beginPath();g.arc(x,yy,13,0,7);g.fill();g.fillStyle='#4a9452';g.beginPath();g.arc(x-3,yy-3,8,0,7);g.fill()}}
+ g.fillStyle='#3c4147';g.fillRect(L,0,R-L,H);g.fillStyle='#eee';g.fillRect(L,0,5,H);g.fillRect(R-5,0,5,H);
+ for(let y=-70;y<H+70;y+=80){let yy=(y+road)%80;g.fillRect(157,yy,5,43);g.fillRect(257,yy,5,43)}
+ for(let y=-40;y<H+40;y+=60){let yy=(y+road*1.1)%60;g.fillStyle='#e6bb42';g.fillRect(35,yy,8,27);g.fillRect(377,yy,8,27)}
+ traffic.forEach(t=>car(t.x,t.y,t.color));coins.forEach(o=>{g.font='27px Arial';g.textAlign='center';g.fillText('🪙',o.x,o.y)});
+ if(keys.nitro&&nitro>0){g.fillStyle='#8cecff';g.beginPath();g.moveTo(p.x-12,p.y+75);g.lineTo(p.x,p.y+110+Math.random()*10);g.lineTo(p.x+12,p.y+75);g.fill()}
+ car(p.x,p.y,'#12a8e3',true);
+ if(state==='countdown'){g.fillStyle='white';g.font='bold 70px Arial';g.textAlign='center';g.fillText(count>0?Math.ceil(count/60):'GO!',210,320)}
+}
+function hud(){$('score').textContent=Math.floor(score);$('speed').textContent=Math.round(speed*19);$('distance').textContent=Math.floor(distance);$('level').textContent=level}
+function start(){cancelAnimationFrame(raf);state='countdown';p.x=210;traffic=[];coins=[];score=distance=speed=road=0;level=1;nitro=100;spawn=45;count=180;keys={};$('overlay').style.display='none';hud();last=performance.now();raf=requestAnimationFrame(loop)}
+function finish(){state='over';cancelAnimationFrame(raf);keys={};if(score>best){best=Math.floor(score);try{localStorage.setItem('ultimateRacingBest',best)}catch(e){}}$('heading').textContent='RACE OVER!';$('message').textContent=`Score: ${Math.floor(score)} · Distance: ${Math.floor(distance)} m · Best: ${best}`;$('start').textContent='RACE AGAIN';$('overlay').style.display='flex'}
+function update(dt){
+ let f=Math.min(dt,40)/16.67;
+ if(state==='countdown'){count-=f*60;if(count<=0)state='playing';return}if(state!=='playing')return;
+ let accel=keys.gas||keys.ArrowUp||keys.w,brake=keys.brake||keys.ArrowDown||keys.s,boost=(keys.nitro||keys[' '])&&nitro>0;
+ speed=clamp(speed+(accel?.12:brake?-.24:-.035)*f,0,boost?15:11);
+ if(boost){speed=clamp(speed+.16*f,0,15);nitro=Math.max(0,nitro-.42*f)}else nitro=Math.min(100,nitro+.055*f);
+ let steer=(keys.right||keys.ArrowRight||keys.d?1:0)-(keys.left||keys.ArrowLeft||keys.a?1:0);
+ p.x=clamp(p.x+steer*(4.4+speed*.15)*f,L+29,R-29);road=(road+speed*f*2.5)%80;distance+=speed*f*.13;score+=speed*f*.09;level=1+Math.floor(distance/500);spawn-=f;
+ if(spawn<=0){let open=lanes.filter(x=>!traffic.some(t=>Math.abs(t.x-x)<55&&t.y<155));if(open.length){let lane=open[Math.floor(Math.random()*open.length)],colors=['#ed5145','#f0b844','#a76be0','#e6e9ee','#35a875'];traffic.push({x:lane,y:-85,color:colors[Math.floor(Math.random()*colors.length)],v:Math.random()*1.2+.8})}if(Math.random()<.22)coins.push({x:lanes[Math.floor(Math.random()*3)],y:-80});spawn=Math.max(22,75-level*5)+Math.random()*25}
+ traffic.forEach(t=>t.y+=(speed*.75+t.v+level*.15)*f);traffic=traffic.filter(t=>t.y<H+90);
+ for(let i=coins.length-1;i>=0;i--){let o=coins[i];o.y+=speed*.75*f;if(Math.abs(o.x-p.x)<33&&Math.abs(o.y-p.y)<48){score+=100;coins.splice(i,1)}else if(o.y>H+20)coins.splice(i,1)}
+ if(traffic.some(t=>Math.abs(p.x-t.x)<34&&Math.abs(p.y-t.y)<59)){finish();return}hud()
+}
+function loop(t){let dt=t-last;last=t;update(dt);draw();if(!['menu','over','paused'].includes(state))raf=requestAnimationFrame(loop)}
+function pause(){if(state==='playing'||state==='countdown'){state='paused';cancelAnimationFrame(raf);$('heading').textContent='PAUSED';$('message').textContent='Your race is paused.';$('start').textContent='RESUME';$('overlay').style.display='flex'}else if(state==='paused'){state='playing';$('overlay').style.display='none';last=performance.now();raf=requestAnimationFrame(loop)}}
+$('start').onclick=()=>state==='paused'?pause():start();$('restart').onclick=start;$('pause').onclick=pause;
+function bind(id,key){let b=$(id),down=e=>{e.preventDefault();keys[key]=true},up=e=>{e.preventDefault();keys[key]=false};b.addEventListener('pointerdown',down);['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,up))}
+[['left','left'],['right','right'],['gas','gas'],['brake','brake'],['nitro','nitro']].forEach(a=>bind(...a));
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();keys[e.key]=true;if(e.key.toLowerCase()==='p'&&!e.repeat)pause()});window.addEventListener('keyup',e=>keys[e.key]=false);
+draw();hud();
+})();
+</script></body></html>
